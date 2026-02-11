@@ -54,7 +54,7 @@ describe('AssignmentsService', () => {
     describe('create', () => {
         it('should assign a driver to a vehicle', async () => {
             assignmentsValidator.validateCreateAssignment.mockResolvedValue(undefined);
-            assignmentRepository.create.mockResolvedValue(mockAssignment);
+            assignmentRepository.create.mockResolvedValue(mockAssignment as any);
 
             const result = await service.create({
                 driverId: 'driver-1',
@@ -82,7 +82,7 @@ describe('AssignmentsService', () => {
 
     describe('findAll', () => {
         it('should return paginated assignments', async () => {
-            assignmentRepository.findMany.mockResolvedValue([mockAssignment]);
+            assignmentRepository.findMany.mockResolvedValue([mockAssignment] as any);
             assignmentRepository.count.mockResolvedValue(1);
 
             const result = await service.findAll({ page: 1, limit: 10 });
@@ -95,7 +95,7 @@ describe('AssignmentsService', () => {
 
     describe('findOne', () => {
         it('should return assignment by ID', async () => {
-            assignmentRepository.findById.mockResolvedValue(mockAssignment);
+            assignmentRepository.findById.mockResolvedValue(mockAssignment as any);
 
             const result = await service.findOne('assignment-1');
 
@@ -114,11 +114,11 @@ describe('AssignmentsService', () => {
 
     describe('remove (unassign)', () => {
         it('should unassign a driver from vehicle', async () => {
-            assignmentRepository.findById.mockResolvedValue(mockAssignment);
+            assignmentRepository.findById.mockResolvedValue(mockAssignment as any);
             assignmentRepository.unassign.mockResolvedValue({
                 ...mockAssignment,
                 unassignedAt: new Date(),
-            });
+            } as any);
 
             const result = await service.remove('assignment-1');
 
@@ -130,7 +130,7 @@ describe('AssignmentsService', () => {
             assignmentRepository.findById.mockResolvedValue({
                 ...mockAssignment,
                 unassignedAt: new Date(),
-            });
+            } as any);
 
             const result = await service.remove('assignment-1');
 

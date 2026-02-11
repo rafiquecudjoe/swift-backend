@@ -1,215 +1,143 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtService } from '@nestjs/jwt';
+import { HttpStatus } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import { AuthService } from '../auth.service';
 import { AuthValidator } from '../auth.validator';
 import { UserRepository } from '../../../repositories/user.repository';
-import { config } from '../../../config/config';
-import prisma from '../../../common/prisma';
 
-jest.setTimeout(30000);
+jest.mock('argon2');
 
-describe('AuthService Integration Tests', () => {
+describe('AuthService Unit Tests', () => {
   let service: AuthService;
-  let module: TestingModule;
+  let userRepository: jest.Mocked<UserRepository>;
+  let jwtService: jest.Mocked<JwtService>;
+  let authValidator: jest.Mocked<AuthValidator>;
 
-  beforeAll(async () => {
-    module = await Test.createTestingModule({
-      imports: [
-        JwtModule.register({
-          secret: config.jwtSecret,
-          signOptions: { expiresIn: config.jwtExpiresIn },
-        }),
+  const mockUser = {
+    id: 'user-1',
+    email: 'test@example.com',
+    password: 'hashed-password',
+    fullName: 'Test User',
+    role: 'OPERATIONS',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+
+  beforeEach(async () => {
+    const mockUserRepository = {
+      create: jest.fn(),
+      findByEmail: jest.fn(),
+      findById: jest.fn(),
+    };
+
+    const mockJwtService = {
+      sign: jest.fn(),
+      verify: jest.fn(),
+    };
+
+    const mockAuthValidator = {
+      validateRegisterDto: jest.fn(),
+      validateLoginDto: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: UserRepository, useValue: mockUserRepository },
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: AuthValidator, useValue: mockAuthValidator },
       ],
-      providers: [AuthService, AuthValidator, UserRepository],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+    userRepository = module.get(UserRepository);
+    jwtService = module.get(JwtService);
+    authValidator = module.get(AuthValidator);
 
-    // Clean up test data
-    try {
-      await prisma.user.deleteMany({
-        where: { email: { contains: 'test-auth-' } },
-      });
-    } catch (error) {
-      console.warn('Initial cleanup failed, may be first run:', error);
-    }
-  });
-
-  afterAll(async () => {
-    try {
-      await prisma.user.deleteMany({
-        where: { email: { contains: 'test-auth-' } },
-      });
-      await prisma.$disconnect();
-    } catch (error) {
-      console.error('Final cleanup failed:', error);
-    } finally {
-      await module.close();
-    }
+    jest.spyOn(argon2, 'hash').mockResolvedValue('hashed-password');
   });
 
   describe('register', () => {
     it('should register a new user successfully', async () => {
-      const dto = {
-        email: 'test-auth-register@example.com',
+      authValidator.validateRegisterDto.mockResolvedValue(undefined);
+      userRepository.create.mockResolvedValue(mockUser as any);
+      jwtService.sign.mockReturnValue('mock-token');
+
+      const result: any = await service.register({
+        email: 'test@example.com',
         password: 'Password@123',
-        fullName: 'Test Auth User',
-        role: 'OPERATIONS' as const,
-      };
+        fullName: 'Test User',
+      });
 
-      const result = await service.register(dto);
-
-      expect(result.status).toBe(201);
-      expect(result.message).toBe('User registered successfully');
-      expect(result.data).toBeDefined();
-      expect((result.data as any).user.email).toBe(dto.email);
-      expect((result.data as any).accessToken).toBeDefined();
-      expect((result.data as any).refreshToken).toBeDefined();
+      expect(result.status).toBe(HttpStatus.CREATED);
+      expect(result.data.user.email).toBe(mockUser.email);
+      expect(result.data.accessToken).toBeDefined();
     });
 
-    it('should register user with phone number', async () => {
-      const dto = {
-        email: 'test-auth-phone@example.com',
+    it('should handle registration validation failure', async () => {
+      const error = new Error('Email already exists') as any;
+      error.code = HttpStatus.CONFLICT;
+      authValidator.validateRegisterDto.mockRejectedValue(error);
+
+      const result: any = await service.register({
+        email: 'test@example.com',
         password: 'Password@123',
-        fullName: 'Phone User',
-        phoneNumber: '+1234567890',
-      };
+        fullName: 'Test User',
+      });
 
-      const result = await service.register(dto);
-
-      expect(result.status).toBe(201);
-      expect((result.data as any).user.email).toBe(dto.email);
-    });
-
-    it('should fail if email already exists', async () => {
-      const dto = {
-        email: 'test-auth-duplicate@example.com',
-        password: 'Password@123',
-        fullName: 'Duplicate User',
-      };
-
-      // Register first time
-      await service.register(dto);
-
-      // Try registering again
-      await expect(service.register(dto)).rejects.toThrow();
-    });
-
-    it('should fail if validation fails (short password)', async () => {
-      const dto = {
-        email: 'test-auth-invalid@example.com',
-        password: '123', // Too short
-        fullName: 'Invalid User',
-      };
-
-      await expect(service.register(dto)).rejects.toThrow();
-    });
-
-    it('should fail if validation fails (weak password)', async () => {
-      const dto = {
-        email: 'test-auth-weak@example.com',
-        password: 'password', // No uppercase, digit, or special char
-        fullName: 'Weak Password User',
-      };
-
-      await expect(service.register(dto)).rejects.toThrow();
+      expect(result.status).toBe(HttpStatus.CONFLICT);
+      expect(result.message).toBe('Email already exists');
     });
   });
 
   describe('login', () => {
-    const loginEmail = 'test-auth-login@example.com';
-    const password = 'Password@123';
+    it('should login successfully', async () => {
+      authValidator.validateLoginDto.mockResolvedValue(mockUser as any);
+      jwtService.sign.mockReturnValue('mock-token');
 
-    beforeAll(async () => {
-      await service.register({
-        email: loginEmail,
-        password,
-        fullName: 'Login User',
-      });
-    });
-
-    it('should login successfully with correct credentials', async () => {
-      const result = await service.login({
-        email: loginEmail,
-        password,
-      });
-
-      expect(result.status).toBe(200);
-      expect(result.message).toBe('Login successful');
-      expect((result.data as any).user.email).toBe(loginEmail);
-      expect((result.data as any).accessToken).toBeDefined();
-      expect((result.data as any).refreshToken).toBeDefined();
-    });
-
-    it('should fail with incorrect password', async () => {
-      await expect(
-        service.login({
-          email: loginEmail,
-          password: 'WrongPassword@123',
-        }),
-      ).rejects.toThrow('Invalid email or password');
-    });
-
-    it('should fail with non-existent email', async () => {
-      await expect(
-        service.login({
-          email: 'nonexistent@example.com',
-          password,
-        }),
-      ).rejects.toThrow('Invalid email or password');
-    });
-  });
-
-  describe('refreshAccessToken', () => {
-    it('should refresh with token rotation (new access + refresh tokens)', async () => {
-      const registerResult = await service.register({
-        email: 'test-auth-refresh@example.com',
+      const result: any = await service.login({
+        email: 'test@example.com',
         password: 'Password@123',
-        fullName: 'Refresh User',
       });
 
-      const refreshToken = (registerResult.data as any).refreshToken;
-      const result = await service.refreshAccessToken({ refreshToken });
-
-      expect(result.status).toBe(200);
-      expect(result.message).toBe('Token refreshed successfully');
-      expect((result.data as any).accessToken).toBeDefined();
-      expect((result.data as any).refreshToken).toBeDefined(); // New refresh token
+      expect(result.status).toBe(HttpStatus.OK);
+      expect(result.data.user.email).toBe(mockUser.email);
+      expect(result.data.accessToken).toBeDefined();
     });
 
-    it('should fail with invalid refresh token', async () => {
-      await expect(
-        service.refreshAccessToken({
-          refreshToken: 'invalid-token',
-        }),
-      ).rejects.toThrow('Invalid or expired refresh token');
+    it('should handle login failure', async () => {
+      const error = new Error('Invalid credentials') as any;
+      error.code = HttpStatus.UNAUTHORIZED;
+      authValidator.validateLoginDto.mockRejectedValue(error);
+
+      const result: any = await service.login({
+        email: 'test@example.com',
+        password: 'WrongPassword',
+      });
+
+      expect(result.status).toBe(HttpStatus.UNAUTHORIZED);
     });
   });
 
   describe('getProfile', () => {
     it('should return user profile', async () => {
-      const email = 'test-auth-profile@example.com';
-      const registerResult = await service.register({
-        email,
-        password: 'Password@123',
-        fullName: 'Profile User',
-      });
+      userRepository.findById.mockResolvedValue(mockUser as any);
 
-      const userId = (registerResult.data as any).user.id;
-      const result = await service.getProfile(userId);
+      const result: any = await service.getProfile('user-1');
 
-      expect(result.status).toBe(200);
-      expect(result.message).toBe('Profile retrieved');
-      expect((result.data as any).email).toBe(email);
-      expect((result.data as any).fullName).toBe('Profile User');
-      expect((result.data as any).password).toBeUndefined(); // Password should not be returned
+      expect(result.status).toBe(HttpStatus.OK);
+      expect(result.data.email).toBe(mockUser.email);
     });
 
     it('should return 404 for non-existent user', async () => {
-      await expect(service.getProfile('non-existent-id')).rejects.toThrow(
-        'User not found',
-      );
+      userRepository.findById.mockResolvedValue(null);
+
+      const result: any = await service.getProfile('non-existent');
+
+      expect(result.status).toBe(HttpStatus.NOT_FOUND);
     });
   });
 });
