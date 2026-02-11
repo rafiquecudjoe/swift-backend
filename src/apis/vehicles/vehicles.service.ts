@@ -11,21 +11,43 @@ import {
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntity,
+} from '../../common/entities/audit-log.entity';
 
 @Injectable()
 export class VehiclesService {
   constructor(
     private readonly vehicleRepository: VehicleRepository,
     private readonly vehiclesValidator: VehiclesValidator,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
-  async create(dto: CreateVehicleDto): Promise<any> {
+  async create(
+    dto: CreateVehicleDto,
+    userId: string,
+    ipAddress: string,
+  ): Promise<any> {
     try {
       await this.vehiclesValidator.validateCreateVehicle(dto);
 
       const vehicle = await this.vehicleRepository.create({
         registrationNumber: dto.registrationNumber,
       });
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.CREATE,
+        AuditEntity.VEHICLE,
+        {
+          userId,
+          entityId: vehicle.id,
+          details: { registrationNumber: dto.registrationNumber },
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.CREATED,
@@ -88,7 +110,12 @@ export class VehiclesService {
     }
   }
 
-  async update(id: string, dto: UpdateVehicleDto): Promise<any> {
+  async update(
+    id: string,
+    dto: UpdateVehicleDto,
+    userId: string,
+    ipAddress: string,
+  ): Promise<any> {
     try {
       const vehicle = await this.vehicleRepository.findById(id);
       if (!vehicle) {
@@ -102,6 +129,18 @@ export class VehiclesService {
         data: dto,
       });
 
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.UPDATE,
+        AuditEntity.VEHICLE,
+        {
+          userId,
+          entityId: id,
+          details: dto,
+          ipAddress,
+        },
+      );
+
       return generateSuccessResponse({
         statusCode: HttpStatus.OK,
         message: 'Vehicle updated successfully',
@@ -113,7 +152,7 @@ export class VehiclesService {
     }
   }
 
-  async remove(id: string): Promise<any> {
+  async remove(id: string, userId: string, ipAddress: string): Promise<any> {
     try {
       const vehicle = await this.vehicleRepository.findById(id);
       if (!vehicle) {
@@ -122,6 +161,17 @@ export class VehiclesService {
 
       await this.vehiclesValidator.validateDeleteVehicle(id);
       await this.vehicleRepository.softDelete(id);
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.DELETE,
+        AuditEntity.VEHICLE,
+        {
+          userId,
+          entityId: id,
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.OK,

@@ -140,6 +140,13 @@ The API will be available at:
 - Assigned/unassigned timestamps
 - Complete historical tracking
 
+**AuditLog** - Security & Compliance
+- Tracks all critical operations (CREATE, UPDATE, DELETE, ASSIGN, UNASSIGN)
+- User ID, entity type, entity ID, action, timestamp
+- IP address tracking
+- JSON details field for context
+- Indexed for fast querying by user, entity, action, and timestamp
+
 ## 📡 API Endpoints
 
 ### Authentication
@@ -242,11 +249,7 @@ npm run format             # Run Prettier
 - **Joi over class-validator:** Used Joi in dedicated validator classes instead of class-validator decorators on DTOs. This centralises validation logic, keeps DTOs as clean data contracts for Swagger, and makes complex conditional validation (e.g., checking uniqueness against the database) straightforward.
 - **Soft Deletes:** Drivers and vehicles use `deletedAt` timestamps rather than hard deletes. This preserves historical assignment data and meets audit trail requirements at the cost of slightly more complex queries (always filtering `deletedAt: null`).
 
-### Trade-offs
 
-- **`Promise<any>` return types on services:** Pragmatic choice to avoid duplicating response type definitions across every method. In a larger project, typed response generics would be preferred.
-- **No dedicated DTO validation pipe:** Validation is done inside services rather than via a global NestJS `ValidationPipe`. This gives more control per endpoint but means validation errors are caught in `try/catch` rather than thrown as automatic 400s.
-- **Monolithic module:** All modules live in one application. For a production fleet management system, microservices separation (auth, drivers, vehicles, assignments) could improve scalability.
 
 ### Assumptions
 
@@ -260,12 +263,8 @@ npm run format             # Run Prettier
 ### What I Would Improve Given More Time
 
 1. **Integration/E2E tests** for the complete assignment flow (create driver → create vehicle → assign → unassign → verify history)
-2. **Typed response DTOs** with proper generics instead of `Promise<any>` for full type safety
-3. **Audit logging** with a dedicated event log table tracking who performed what action and when
-4. **CI/CD pipeline** (GitHub Actions) with lint → test → build → deploy stages
-5. **Pagination metadata** in response headers (`X-Total-Count`, `Link` headers) for REST best practices
-6. **Search and filtering** — full-text search on driver names, date-range filters on assignments
-7. **Database seeding** script with realistic test data for development
+2. **Search and filtering** — full-text search on driver names, date-range filters on assignments
+3. **Audit log API endpoint** — Allow administrators to query and export audit logs via API
 
 ## 🔄 Development Workflow
 
@@ -279,11 +278,7 @@ npm run format             # Run Prettier
 8. Write unit tests
 9. Test via Swagger UI
 
-## 📄 License
 
-Proprietary - Swift Transport
-
----
 
 **Built with ❤️ for Swift Transport**
 

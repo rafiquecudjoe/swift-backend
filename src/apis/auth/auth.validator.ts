@@ -28,7 +28,7 @@ export class AuthValidator {
         fullName: joi.string().required().label('Full name'),
         phoneNumber: joi
           .string()
-          .pattern(/^\+?[1-9]\d{1,14}$/)
+          .pattern(/^\+?[0-9]\d{9,14}$/)
           .optional()
           .label('Phone number'),
         role: joi

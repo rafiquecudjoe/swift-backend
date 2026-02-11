@@ -11,15 +11,25 @@ import {
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntity,
+} from '../../common/entities/audit-log.entity';
 
 @Injectable()
 export class DriversService {
   constructor(
     private readonly driverRepository: DriverRepository,
     private readonly driversValidator: DriversValidator,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
-  async create(dto: CreateDriverDto): Promise<any> {
+  async create(
+    dto: CreateDriverDto,
+    userId: string,
+    ipAddress: string,
+  ): Promise<any> {
     try {
       await this.driversValidator.validateCreateDriver(dto);
 
@@ -29,6 +39,18 @@ export class DriversService {
         licenseNumber: dto.licenseNumber,
         status: dto.status || 'ACTIVE',
       });
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.CREATE,
+        AuditEntity.DRIVER,
+        {
+          userId,
+          entityId: driver.id,
+          details: { fullName: dto.fullName, phoneNumber: dto.phoneNumber },
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.CREATED,
@@ -92,7 +114,12 @@ export class DriversService {
     }
   }
 
-  async update(id: string, dto: UpdateDriverDto): Promise<any> {
+  async update(
+    id: string,
+    dto: UpdateDriverDto,
+    userId: string,
+    ipAddress: string,
+  ): Promise<any> {
     try {
       const driver = await this.driverRepository.findById(id);
       if (!driver) {
@@ -106,6 +133,18 @@ export class DriversService {
         data: dto,
       });
 
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.UPDATE,
+        AuditEntity.DRIVER,
+        {
+          userId,
+          entityId: id,
+          details: dto,
+          ipAddress,
+        },
+      );
+
       return generateSuccessResponse({
         statusCode: HttpStatus.OK,
         message: 'Driver updated successfully',
@@ -117,7 +156,7 @@ export class DriversService {
     }
   }
 
-  async remove(id: string): Promise<any> {
+  async remove(id: string, userId: string, ipAddress: string): Promise<any> {
     try {
       const driver = await this.driverRepository.findById(id);
       if (!driver) {
@@ -126,6 +165,17 @@ export class DriversService {
 
       await this.driversValidator.validateDeleteDriver(id);
       await this.driverRepository.softDelete(id);
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.DELETE,
+        AuditEntity.DRIVER,
+        {
+          userId,
+          entityId: id,
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.OK,

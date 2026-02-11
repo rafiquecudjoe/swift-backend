@@ -9,20 +9,18 @@ import { DriversModule } from './apis/drivers/drivers.module';
 import { VehiclesModule } from './apis/vehicles/vehicles.module';
 import { AssignmentsModule } from './apis/assignments/assignments.module';
 import { RepositoriesModule } from './repositories/repositories.module';
+import { AuditLogModule } from './common/audit-log/audit-log.module';
 
 @Module({
   imports: [
-    // Config
     ConfigModule.forRoot({ isGlobal: true }),
-    // Rate limiting
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
-    // Feature modules
     AuthModule,
     DriversModule,
     VehiclesModule,
     AssignmentsModule,
-    // Shared modules
     RepositoriesModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

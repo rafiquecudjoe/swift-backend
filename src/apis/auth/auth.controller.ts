@@ -24,11 +24,19 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResponseWithData } from '../../common/entities/response.entity';
 import { JwtAuthGuard } from './guards/jwt.guard';
 import type { AuthenticatedRequest } from '../../common/types';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntity,
+} from '../../common/entities/audit-log.entity';
 
 @Controller('api/v1/auth')
 @ApiTags('Authentication')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -38,21 +46,55 @@ export class AuthController {
     type: ResponseWithData,
   })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  async register(@Body() requestBody: RegisterDto, @Res() res: Response) {
+  async register(
+    @Body() requestBody: RegisterDto,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
     const { status, ...responseData } =
       await this.authService.register(requestBody);
+
+    // Log registration audit event
+    if (status === 201 && 'data' in responseData) {
+      const userId = (responseData as any).data?.user?.id;
+      await this.auditLogService.logEvent(
+        AuditAction.REGISTER,
+        AuditEntity.USER,
+        {
+          userId,
+          details: { email: requestBody.email },
+          ipAddress: req.ip,
+        },
+      );
+    }
+
     return res.status(status).json(responseData);
   }
 
   @Post('login')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 50, ttl: 60000 } }) // More lenient for dev
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiOkResponse({ description: 'Login successful', type: ResponseWithData })
   @ApiBadRequestResponse({ description: 'Invalid credentials' })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
-  async login(@Body() requestBody: LoginDto, @Res() res: Response) {
+  async login(
+    @Body() requestBody: LoginDto,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
     const { status, ...responseData } =
       await this.authService.login(requestBody);
+
+    // Log login audit event
+    if (status === 200 && 'data' in responseData) {
+      const userId = (responseData as any).data?.user?.id;
+      await this.auditLogService.logEvent(AuditAction.LOGIN, AuditEntity.USER, {
+        userId,
+        details: { email: requestBody.email },
+        ipAddress: req.ip,
+      });
+    }
+
     return res.status(status).json(responseData);
   }
 

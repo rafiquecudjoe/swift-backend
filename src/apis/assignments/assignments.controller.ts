@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -24,21 +25,29 @@ import { QueryAssignmentsDto } from './dto/query-assignments.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import type { AuthenticatedRequest } from '../../common/types';
 
 @Controller('api/v1/assignments')
 @ApiTags('Assignments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class AssignmentsController {
-  constructor(private readonly assignmentsService: AssignmentsService) { }
+  constructor(private readonly assignmentsService: AssignmentsService) {}
 
   @Post()
   @Roles('ADMIN', 'OPERATIONS')
   @ApiOperation({ summary: 'Assign driver to vehicle (Admin & Operations)' })
   @ApiCreatedResponse({ description: 'Driver assigned successfully' })
-  async create(@Body() dto: CreateAssignmentDto, @Res() res: Response) {
-    const { status, ...responseData } =
-      await this.assignmentsService.create(dto);
+  async create(
+    @Body() dto: CreateAssignmentDto,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const { status, ...responseData } = await this.assignmentsService.create(
+      dto,
+      req.user.id,
+      req.ip,
+    );
     return res.status(status).json(responseData);
   }
 
@@ -70,9 +79,16 @@ export class AssignmentsController {
   })
   @ApiParam({ name: 'id', description: 'Assignment ID' })
   @ApiOkResponse({ description: 'Driver unassigned successfully' })
-  async remove(@Param('id') id: string, @Res() res: Response) {
-    const { status, ...responseData } =
-      await this.assignmentsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const { status, ...responseData } = await this.assignmentsService.remove(
+      id,
+      req.user.id,
+      req.ip,
+    );
     return res.status(status).json(responseData);
   }
 }

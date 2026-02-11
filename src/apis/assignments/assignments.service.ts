@@ -10,15 +10,25 @@ import {
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntity,
+} from '../../common/entities/audit-log.entity';
 
 @Injectable()
 export class AssignmentsService {
   constructor(
     private readonly assignmentRepository: AssignmentRepository,
     private readonly assignmentsValidator: AssignmentsValidator,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
-  async create(dto: CreateAssignmentDto): Promise<any> {
+  async create(
+    dto: CreateAssignmentDto,
+    userId: string,
+    ipAddress: string,
+  ): Promise<any> {
     try {
       await this.assignmentsValidator.validateCreateAssignment(dto);
 
@@ -26,6 +36,18 @@ export class AssignmentsService {
         driver: { connect: { id: dto.driverId } },
         vehicle: { connect: { id: dto.vehicleId } },
       });
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.ASSIGN,
+        AuditEntity.ASSIGNMENT,
+        {
+          userId,
+          entityId: assignment.id,
+          details: { driverId: dto.driverId, vehicleId: dto.vehicleId },
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.CREATED,
@@ -92,7 +114,7 @@ export class AssignmentsService {
     }
   }
 
-  async remove(id: string): Promise<any> {
+  async remove(id: string, userId: string, ipAddress: string): Promise<any> {
     try {
       const assignment = await this.assignmentRepository.findById(id);
       if (!assignment) {
@@ -104,6 +126,17 @@ export class AssignmentsService {
       }
 
       await this.assignmentRepository.unassign(id);
+
+      // Audit logging
+      await this.auditLogService.logEvent(
+        AuditAction.UNASSIGN,
+        AuditEntity.ASSIGNMENT,
+        {
+          userId,
+          entityId: id,
+          ipAddress,
+        },
+      );
 
       return generateSuccessResponse({
         statusCode: HttpStatus.OK,

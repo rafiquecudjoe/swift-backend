@@ -22,7 +22,7 @@ export class DriversValidator {
         fullName: joi.string().required().label('Full name'),
         phoneNumber: joi
           .string()
-          .pattern(/^\+?[1-9]\d{1,14}$/)
+          .pattern(/^\+?[0-9]\d{9,14}$/)
           .required()
           .label('Phone number'),
         licenseNumber: joi.string().min(5).required().label('License number'),
@@ -61,7 +61,7 @@ export class DriversValidator {
         fullName: joi.string().optional().label('Full name'),
         phoneNumber: joi
           .string()
-          .pattern(/^\+?[1-9]\d{1,14}$/)
+          .pattern(/^\+?[0-9]\d{9,14}$/)
           .optional()
           .label('Phone number'),
         licenseNumber: joi.string().min(5).optional().label('License number'),

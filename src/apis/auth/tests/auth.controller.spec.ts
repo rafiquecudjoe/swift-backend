@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AuthController } from '../auth.controller';
 import { AuthService } from '../auth.service';
 import { JwtAuthGuard } from '../guards/jwt.guard';
+import { AuditLogService } from '../../../common/audit-log/audit-log.service';
 
 describe('AuthController Unit Tests', () => {
   let app: INestApplication;
@@ -23,9 +24,17 @@ describe('AuthController Unit Tests', () => {
       getProfile: jest.fn(),
     };
 
+    const mockAuditLogService = {
+      logEvent: jest.fn(),
+      getAuditLogs: jest.fn(),
+    };
+
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: AuditLogService, useValue: mockAuditLogService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -49,8 +58,18 @@ describe('AuthController Unit Tests', () => {
 
   describe('POST /api/v1/auth/register', () => {
     it('should register successfully', async () => {
-      const dto = { email: 'test@example.com', password: 'Password@123', fullName: 'User' };
-      authService.register.mockResolvedValue(mockResponse(HttpStatus.CREATED, { user: { email: dto.email } }, 'User registered successfully') as any);
+      const dto = {
+        email: 'test@example.com',
+        password: 'Password@123',
+        fullName: 'User',
+      };
+      authService.register.mockResolvedValue(
+        mockResponse(
+          HttpStatus.CREATED,
+          { user: { email: dto.email } },
+          'User registered successfully',
+        ) as any,
+      );
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
@@ -61,7 +80,13 @@ describe('AuthController Unit Tests', () => {
     });
 
     it('should return 400 for validation errors', async () => {
-      authService.register.mockResolvedValue(mockResponse(HttpStatus.BAD_REQUEST, undefined, 'Validation failed') as any);
+      authService.register.mockResolvedValue(
+        mockResponse(
+          HttpStatus.BAD_REQUEST,
+          undefined,
+          'Validation failed',
+        ) as any,
+      );
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
@@ -73,7 +98,13 @@ describe('AuthController Unit Tests', () => {
 
   describe('POST /api/v1/auth/login', () => {
     it('should login successfully', async () => {
-      authService.login.mockResolvedValue(mockResponse(HttpStatus.OK, { accessToken: 'token' }, 'Login successful') as any);
+      authService.login.mockResolvedValue(
+        mockResponse(
+          HttpStatus.OK,
+          { accessToken: 'token' },
+          'Login successful',
+        ) as any,
+      );
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -84,7 +115,13 @@ describe('AuthController Unit Tests', () => {
     });
 
     it('should return 401 for invalid credentials', async () => {
-      authService.login.mockResolvedValue(mockResponse(HttpStatus.UNAUTHORIZED, undefined, 'Invalid email or password') as any);
+      authService.login.mockResolvedValue(
+        mockResponse(
+          HttpStatus.UNAUTHORIZED,
+          undefined,
+          'Invalid email or password',
+        ) as any,
+      );
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -96,11 +133,18 @@ describe('AuthController Unit Tests', () => {
 
   describe('GET /api/v1/auth/profile', () => {
     it('should return profile', async () => {
-      authService.getProfile.mockResolvedValue(mockResponse(HttpStatus.OK, { email: 'test@example.com' }, 'Profile retrieved') as any);
+      authService.getProfile.mockResolvedValue(
+        mockResponse(
+          HttpStatus.OK,
+          { email: 'test@example.com' },
+          'Profile retrieved',
+        ) as any,
+      );
 
       // Bypass guard by using app.use in init if needed, but here we override guard
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/auth/profile');
+      const response = await request(app.getHttpServer()).get(
+        '/api/v1/auth/profile',
+      );
 
       expect(response.status).toBe(HttpStatus.OK);
       expect(response.body.data.email).toBe('test@example.com');
