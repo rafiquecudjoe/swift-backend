@@ -23,15 +23,17 @@ RUN npm ci --omit=dev
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
 RUN npx prisma generate
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
 # Security: run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
+    mkdir -p /app/logs && chown appuser:appgroup /app/logs
 USER appuser
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+CMD ["npm", "run", "start:docker"]

@@ -6,11 +6,11 @@ services:
       POSTGRES_PASSWORD: swift_pass
       POSTGRES_DB: swift_driver_management
     ports:
-      - '5432:5432'
+      - '4000:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U swift']
+      test: ['CMD-SHELL', 'pg_isready -U swift -d swift_driver_management']
       interval: 5s
       timeout: 5s
       retries: 5
