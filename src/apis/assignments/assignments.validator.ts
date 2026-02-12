@@ -65,15 +65,13 @@ export class AssignmentsValidator {
   }
 
   validateQueryAssignments(query: QueryAssignmentsDto): void {
-    const joiSchema = joi
-      .object({
-        driverId: joi.string().uuid().optional().label('Driver ID'),
-        vehicleId: joi.string().uuid().optional().label('Vehicle ID'),
-        activeOnly: joi.boolean().optional().label('Active only'),
-        page: joi.number().integer().min(1).optional().label('Page'),
-        limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
-      })
-      .strict();
+    const joiSchema = joi.object({
+      driverId: joi.string().uuid().optional().label('Driver ID'),
+      vehicleId: joi.string().uuid().optional().label('Vehicle ID'),
+      activeOnly: joi.boolean().optional().label('Active only'),
+      page: joi.number().integer().min(1).optional().label('Page'),
+      limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
+    });
 
     const results = validateJoiSchema(joiSchema, query);
     if (results) throwError(results, HttpStatus.BAD_REQUEST);

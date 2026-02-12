@@ -7,6 +7,8 @@ import {
   generateErrorResponse,
   generateSuccessResponse,
   throwError,
+  paginationFromQuery,
+  toBool,
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
@@ -64,12 +66,12 @@ export class AssignmentsService {
     try {
       this.assignmentsValidator.validateQueryAssignments(query);
 
-      const { page = 1, limit = 10, driverId, vehicleId, activeOnly } = query;
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = paginationFromQuery(query);
+      const activeOnly = toBool(query.activeOnly);
 
-      const where: any = {};
-      if (driverId) where.driverId = driverId;
-      if (vehicleId) where.vehicleId = vehicleId;
+      const where: Record<string, unknown> = {};
+      if (query.driverId) where.driverId = query.driverId;
+      if (query.vehicleId) where.vehicleId = query.vehicleId;
       if (activeOnly) where.unassignedAt = null;
 
       const [assignments, total] = await Promise.all([

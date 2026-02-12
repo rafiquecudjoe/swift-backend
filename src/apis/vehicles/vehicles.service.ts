@@ -8,6 +8,7 @@ import {
   generateErrorResponse,
   generateSuccessResponse,
   throwError,
+  paginationFromQuery,
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
@@ -64,8 +65,7 @@ export class VehiclesService {
     try {
       this.vehiclesValidator.validateQueryVehicles(query);
 
-      const { page = 1, limit = 10 } = query;
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = paginationFromQuery(query);
 
       const [vehicles, total] = await Promise.all([
         this.vehicleRepository.findMany({ skip, take: limit }),

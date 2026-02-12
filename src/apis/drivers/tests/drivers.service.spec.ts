@@ -200,7 +200,11 @@ describe('DriversService', () => {
         status: 'INACTIVE',
       });
 
-      const result = await service.remove('driver-1', 'test-user-id', '127.0.0.1');
+      const result = await service.remove(
+        'driver-1',
+        'test-user-id',
+        '127.0.0.1',
+      );
 
       expect(result.status).toBe(HttpStatus.OK);
       expect(result.message).toBe('Driver deactivated successfully');
@@ -209,7 +213,11 @@ describe('DriversService', () => {
     it('should return 404 when removing non-existent driver', async () => {
       driverRepository.findById.mockResolvedValue(null);
 
-      const result = await service.remove('non-existent', 'test-user-id', '127.0.0.1');
+      const result = await service.remove(
+        'non-existent',
+        'test-user-id',
+        '127.0.0.1',
+      );
 
       expect(result.status).toBe(HttpStatus.NOT_FOUND);
     });

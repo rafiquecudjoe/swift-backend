@@ -70,12 +70,10 @@ export class VehiclesValidator {
   }
 
   validateQueryVehicles(query: QueryVehiclesDto): void {
-    const joiSchema = joi
-      .object({
-        page: joi.number().integer().min(1).optional().label('Page'),
-        limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
-      })
-      .strict();
+    const joiSchema = joi.object({
+      page: joi.number().integer().min(1).optional().label('Page'),
+      limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
+    });
 
     const results = validateJoiSchema(joiSchema, query);
     if (results) throwError(results, HttpStatus.BAD_REQUEST);

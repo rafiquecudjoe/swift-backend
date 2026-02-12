@@ -98,17 +98,16 @@ export class DriversValidator {
   }
 
   validateQueryDrivers(query: QueryDriversDto): void {
-    const joiSchema = joi
-      .object({
-        status: joi
-          .string()
-          .valid('ACTIVE', 'SUSPENDED', 'INACTIVE')
-          .optional()
-          .label('Status'),
-        page: joi.number().integer().min(1).optional().label('Page'),
-        limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
-      })
-      .strict();
+    // Query params arrive as strings; allow Joi type coercion for page/limit.
+    const joiSchema = joi.object({
+      status: joi
+        .string()
+        .valid('ACTIVE', 'SUSPENDED', 'INACTIVE')
+        .optional()
+        .label('Status'),
+      page: joi.number().integer().min(1).optional().label('Page'),
+      limit: joi.number().integer().min(1).max(100).optional().label('Limit'),
+    });
 
     const results = validateJoiSchema(joiSchema, query);
     if (results) throwError(results, HttpStatus.BAD_REQUEST);

@@ -126,7 +126,11 @@ describe('VehiclesService', () => {
     it('should deactivate vehicle', async () => {
       vehicleRepository.findById.mockResolvedValue(mockVehicle as any);
 
-      const result = await service.remove('vehicle-1', 'test-user-id', '127.0.0.1');
+      const result = await service.remove(
+        'vehicle-1',
+        'test-user-id',
+        '127.0.0.1',
+      );
 
       expect(result.status).toBe(HttpStatus.OK);
     });

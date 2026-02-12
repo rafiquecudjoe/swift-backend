@@ -2,46 +2,61 @@
 
 A robust NestJS backend API for managing drivers and vehicle assignments for Swift Transport, a transport platform operating across Africa.
 
+## 🎥 Video Walkthrough (5 min)
+
+▶️ [Watch on Loom](https://www.loom.com/share/f990315304e44961ba711bf74c3a4689) — 5 minute walkthrough of the API and dashboard
+
 ## 🏗️ Architecture Overview
 
-This project follows a **clean, modular architecture** with clear separation of concerns:
+This backend follows a **feature-first modular architecture** on top of NestJS, with strict separation between API, business rules, and data access:
 
 ```
 src/
-├── apis/                    # Feature modules (business logic)
-│   └── auth/               # Authentication module
-│       ├── dto/            # Data Transfer Objects
-│       ├── guards/         # Route guards (JWT, Admin)
-│       ├── strategies/     # Passport strategies
-│       ├── auth.controller.ts
-│       ├── auth.service.ts
-│       ├── auth.validator.ts
-│       └── auth.module.ts
-├── common/                  # Shared utilities
-│   ├── entities/           # Swagger response entities
-│   ├── types/              # TypeScript type definitions
-│   ├── prisma.ts           # Prisma singleton instance
-│   └── response.ts         # Response builder class
-├── config/                  # Configuration
-│   ├── config.ts           # Centralized config object
-│   └── validate-env.ts     # Joi environment validation
-├── repositories/           # Data access layer
-│   ├── entities/           # Entity type definitions
+├── apis/                            # HTTP API modules (controllers/services/validators)
+│   ├── auth/                        # Registration, login, refresh token, profile
+│   │   ├── dto/
+│   │   ├── decorators/
+│   │   ├── guards/
+│   │   ├── strategies/
+│   │   └── auth.module.ts
+│   ├── drivers/                     # Driver CRUD + status lifecycle
+│   ├── vehicles/                    # Vehicle CRUD + lifecycle
+│   └── assignments/                 # Driver-vehicle assignment/unassignment flow
+├── repositories/                    # Data access layer (Prisma-backed repositories)
+│   ├── repositories.module.ts
 │   ├── user.repository.ts
 │   ├── driver.repository.ts
 │   ├── vehicle.repository.ts
 │   ├── assignment.repository.ts
-│   └── repositories.module.ts
-├── utils/                  # Pure utility functions
+│   └── entities/                    # Repository input/query types
+├── common/                          # Cross-cutting infrastructure and shared contracts
+│   ├── audit-log/                   # Audit logging module/service
+│   ├── entities/                    # Shared response/audit entities
+│   ├── enums/
+│   ├── types/
+│   ├── prisma.ts                    # Prisma client (Postgres adapter)
+│   └── response.ts                  # Standard API response builder
+├── config/                          # Env validation + runtime config
+│   ├── validate-env.ts
+│   └── config.ts
+├── utils/                           # Helpers (validation, logger, query coercion)
+│   ├── entities/
+│   │   └── utils.entity.ts
 │   ├── joi.validator.ts
 │   ├── logger.ts
-│   ├── utils.ts
-│   └── sanitize.ts
+│   └── utils.ts                     # Query param coercion (pagination, booleans)
 ├── app.module.ts
 ├── app.controller.ts
 ├── app.service.ts
 └── main.ts
 ```
+
+### Runtime composition
+
+- **API Layer:** Nest controllers expose versioned routes under `/api/v1/*`
+- **Domain Layer:** Services + validators enforce business rules (RBAC, assignment constraints, input checks)
+- **Persistence Layer:** Repository classes isolate all Prisma queries/mutations
+- **Infrastructure Layer:** PostgreSQL + Prisma migrations + Dockerized deployment (API startup runs `prisma migrate deploy` before boot)
 
 ## 🔑 Key Design Patterns
 
@@ -189,27 +204,51 @@ The API will be available at:
 - **Joi Validation:** Input validation with strict schemas
 - **RBAC:** Role-based access control (Admin, Operations) via `@Roles()` decorator
 
-## 🐳 Docker
+## 🐳 Docker (Recommended for Reviewers)
+
+The fastest way to get the API running:
 
 ```bash
-# Start everything (PostgreSQL + API)
+# Start everything (PostgreSQL + API) - includes automatic migrations
 docker compose up -d
 
-# Or build and run manually
+# View logs
+docker compose logs -f api
+
+# Stop
+docker compose down
+```
+
+This will:
+- Start PostgreSQL 16 on port **4000** (host) → 5432 (container)
+- Build and start the API on port **3000**
+- Run Prisma migrations automatically on API startup
+- Wait for the database to be healthy before starting the API
+
+Once running:
+- **API:** http://localhost:3000
+- **Swagger Docs:** http://localhost:3000/api
+
+```bash
+# Alternative: Build and run manually (requires external PostgreSQL)
 docker build -t swift-driver-backend .
 docker run -p 3000:3000 --env-file .env swift-driver-backend
 ```
 
 ## 📝 Environment Variables
 
+Copy `.env.example` to `.env` and configure:
+
 ```env
 NODE_ENV=development
 PORT=3000
-DATABASE_URL="postgresql://user:password@localhost:5432/swift_driver_management"
-JWT_SECRET="your-super-secret-jwt-key"
+DATABASE_URL="postgresql://user:password@localhost:5432/swift_driver_management?schema=public"
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
 JWT_EXPIRES_IN="24h"
 JWT_REFRESH_EXPIRES_IN="7d"
 ```
+
+> **Note:** When using Docker Compose, the environment variables are pre-configured in `docker-compose.yml`.
 
 ## 🛠️ Available Scripts
 
@@ -219,11 +258,13 @@ npm run start:dev          # Start with hot reload
 
 # Production
 npm run build              # Build for production
-npm run start:prod         # Start production server
+npm run start:prod         # Start production server (requires pre-run migrations)
+npm run start:docker       # Run migrations + start server (used by Docker)
 
 # Database
-npx prisma migrate dev     # Run migrations
-npx prisma studio          # Open Prisma Studio
+npx prisma migrate dev     # Create and run migrations (development)
+npx prisma migrate deploy  # Apply migrations (production/CI)
+npx prisma studio          # Open Prisma Studio (DB GUI)
 npx prisma generate        # Generate Prisma Client
 
 # Testing
@@ -235,6 +276,34 @@ npm run test:cov           # Test coverage
 npm run lint               # Run ESLint
 npm run format             # Run Prettier
 ```
+
+## ✅ Quick Test (for Reviewers)
+
+After starting the server (via Docker or locally), test the API:
+
+```bash
+# 1. Register an admin user
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@test.com","password":"Password123!","fullName":"Test Admin","role":"ADMIN"}'
+
+# 2. Login to get tokens
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@test.com","password":"Password123!"}'
+
+# 3. Use the access token to create a driver (replace <TOKEN>)
+curl -X POST http://localhost:3000/api/v1/drivers \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"fullName":"John Doe","phoneNumber":"+233123456789","licenseNumber":"DL-123456"}'
+
+# 4. List drivers
+curl http://localhost:3000/api/v1/drivers \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Or use Swagger UI at http://localhost:3000/api for an interactive experience.
 
 ## 📚 Documentation
 

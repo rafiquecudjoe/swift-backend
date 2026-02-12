@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "🎨 Running formatter on staged files..."
+npm run format
+git add -u

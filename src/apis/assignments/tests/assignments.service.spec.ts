@@ -139,7 +139,11 @@ describe('AssignmentsService', () => {
         unassignedAt: new Date(),
       } as any);
 
-      const result = await service.remove('assignment-1', 'test-user-id', '127.0.0.1');
+      const result = await service.remove(
+        'assignment-1',
+        'test-user-id',
+        '127.0.0.1',
+      );
 
       expect(result.status).toBe(HttpStatus.OK);
       expect(result.message).toBe(
@@ -153,7 +157,11 @@ describe('AssignmentsService', () => {
         unassignedAt: new Date(),
       } as any);
 
-      const result = await service.remove('assignment-1', 'test-user-id', '127.0.0.1');
+      const result = await service.remove(
+        'assignment-1',
+        'test-user-id',
+        '127.0.0.1',
+      );
 
       expect(result.status).toBe(HttpStatus.BAD_REQUEST);
     });

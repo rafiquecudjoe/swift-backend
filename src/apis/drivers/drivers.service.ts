@@ -8,6 +8,7 @@ import {
   generateErrorResponse,
   generateSuccessResponse,
   throwError,
+  paginationFromQuery,
 } from '../../utils/utils';
 import { CaughtError } from '../../utils/entities/utils.entity';
 import { logError } from '../../utils/logger';
@@ -67,10 +68,8 @@ export class DriversService {
     try {
       this.driversValidator.validateQueryDrivers(query);
 
-      const { page = 1, limit = 10, status } = query;
-      const skip = (page - 1) * limit;
-
-      const where = status ? { status } : {};
+      const { page, limit, skip } = paginationFromQuery(query);
+      const where = query.status ? { status: query.status } : {};
 
       const [drivers, total] = await Promise.all([
         this.driverRepository.findMany({ skip, take: limit, where }),
